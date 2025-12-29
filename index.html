@@ -30,7 +30,7 @@
       background: var(--bg);
       color: var(--fg);
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-      overflow:hidden;
+      overflow:hidden; /* desktop */
     }
 
     /* ---------- Background Scene ---------- */
@@ -57,6 +57,7 @@
       aspect-ratio: 5 / 4;
       transform: translate3d(0,0,0);
       will-change: transform;
+      -webkit-tap-highlight-color: transparent;
     }
 
     .tile{
@@ -311,43 +312,37 @@
 
     #galleryView[hidden], #panelView[hidden] { display:none !important; }
 
-    /* ---------- Mobile: scroll + tidy grid ---------- */
+    /* ---------- Mobile: keep FLOATING tiles, but scroll + tap-friendly ---------- */
     @media (max-width: 820px){
       body{ overflow:auto; }
 
+      /* Make scene a scrollable section instead of fixed */
       #scene{
         position: relative;
-        height: 100svh;
-        overflow: hidden;
+        min-height: 140svh; /* extra space so tiles can sit below hero */
+        overflow: visible;  /* IMPORTANT: don’t clip taps */
+      }
+
+      /* Keep scatter as a floating absolute layer inside the scene */
+      #scatter{
+        position:absolute;
+        inset:0;
+        transform:none !important;
       }
 
       .hero{
         position: sticky;
         top: 0;
-        padding: 28px 16px 18px;
+        padding: 22px 16px 14px;
+        z-index: 6;
       }
       .hero__logo{ width: min(520px, 86vw); }
       .hero__desc{ font-size: 14px; }
 
-      #scatter{
-        position: relative;
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 14px;
-        padding: 14px 14px 28px;
-        transform: none !important;
-      }
-
+      /* Bigger tiles for thumbs */
       .anchor{
-        position: relative;
-        left:auto !important;
-        top:auto !important;
-        width: 100%;
-        height: 92px;
-        aspect-ratio: auto;
-        transform: none !important;
+        width: clamp(210px, 46vw, 320px);
       }
-
       .tile{ border-radius: 18px; }
       .tile__text{
         font-size: 22px;
@@ -355,16 +350,9 @@
       }
 
       .overlay__shell{ padding: 14px; }
-      .detail-card{
-        width: 100%;
-        border-radius: 18px;
-      }
+      .detail-card{ width: 100%; border-radius: 18px; }
       .detail-card__media{ height: min(56vh, 520px); }
-      .nav{
-        width: 44px;
-        height: 44px;
-        font-size: 28px;
-      }
+      .nav{ width: 44px; height: 44px; font-size: 28px; }
     }
   </style>
 </head>
@@ -419,7 +407,6 @@
     const FORMSPREE_ENDPOINT = "https://formspree.io/f/mvzowbvw";
     const isMobile = () => window.matchMedia("(max-width: 820px)").matches;
 
-    // ====== EDIT THESE (your content + slide filenames) ======
     const tilesData = [
       {
         id:"about",
@@ -471,7 +458,6 @@
         slides:["images/slides/art-01.jpg","images/slides/art-02.jpg","images/slides/art-03.jpg"]
       },
     ];
-    // =========================================================
 
     const $ = (id) => document.getElementById(id);
 
@@ -506,7 +492,6 @@
       setOverlayMode("gallery");
       panelView.hidden = true;
       galleryView.hidden = false;
-
       prevBtn.style.pointerEvents = "auto";
       nextBtn.style.pointerEvents = "auto";
     }
@@ -515,7 +500,6 @@
       setOverlayMode("panel");
       galleryView.hidden = true;
       panelView.hidden = false;
-
       prevBtn.style.pointerEvents = "none";
       nextBtn.style.pointerEvents = "none";
     }
@@ -618,7 +602,7 @@
       });
     }
 
-    // ---------- Layout (desktop: scattered + drift, mobile: grid) ----------
+    // ---------- Layout (FLOATING on desktop AND mobile) ----------
     function clamp(min, val, max){ return Math.max(min, Math.min(max, val)); }
 
     function rectsOverlap(a, b, pad=0){
@@ -632,13 +616,18 @@
 
     function computeTileSize(){
       const w = window.innerWidth;
-      const tileW = clamp(220, w * 0.22, 460);
+      const mobile = isMobile();
+
+      const tileW = mobile
+        ? clamp(210, w * 0.46, 320)
+        : clamp(220, w * 0.22, 460);
+
       const tileH = tileW * (4/5);
       return { tileW, tileH };
     }
 
-    function ambientDrift(anchorEl, i, maxDrift){
-      const amp = maxDrift * (0.85 + Math.random() * 0.35);
+    function ambientDrift(anchorEl, i, amount){
+      const amp = amount * (0.85 + Math.random() * 0.35);
       const speed = 0.18 + Math.random() * 0.22;
 
       return gsap.to(anchorEl, {
@@ -652,38 +641,27 @@
       });
     }
 
-    function stopAllDrift(){
-      const anchors = scatter.querySelectorAll(".anchor");
-      anchors.forEach(a => {
-        const tw = driftTweens.get(a);
-        if (tw) tw.kill();
-      });
-      driftTweens.clear?.();
-    }
-
     function layoutTiles(){
-      // Kill existing drift tweens cleanly
+      // kill old drift
       scatter.querySelectorAll(".anchor").forEach(a => {
         const tw = driftTweens.get(a);
         if (tw) tw.kill();
       });
-      driftTweens.clear?.();
 
       scatter.innerHTML = "";
 
       const mobile = isMobile();
-
       const W = window.innerWidth;
       const H = window.innerHeight;
 
       const { tileW, tileH } = computeTileSize();
 
-      const maxDrift = 16;
-      const safetyPad = 26 + maxDrift; // ensures text never gets covered
+      const driftAmt = mobile ? 6 : 16;           // calmer on mobile
+      const safetyPad = 26 + driftAmt;            // include drift in spacing
       const rects = [];
 
       const cx = W / 2, cy = H / 2;
-      const clearRadius = Math.min(W, H) * 0.30;
+      const clearRadius = mobile ? Math.min(W, H) * 0.18 : Math.min(W, H) * 0.30;
 
       tilesData.forEach((t, i) => {
         const anchor = document.createElement("div");
@@ -703,60 +681,55 @@
         tile.appendChild(txt);
         anchor.appendChild(tile);
 
-        // Mobile: let CSS grid handle placement
-        if (!mobile){
-          // Desktop: non-overlapping scatter placement
-          const tries = 1400;
-          let best = null;
-          let bestScore = -1e9;
+        // Pick a non-overlapping floating position
+        const tries = 1400;
+        let best = null;
+        let bestScore = -1e9;
 
-          for (let k = 0; k < tries; k++){
-            const x = Math.random() * (W - tileW - 24) + 12;
-            const y = Math.random() * (H - tileH - 24) + 12;
+        for (let k = 0; k < tries; k++){
+          const x = Math.random() * (W - tileW - 24) + 12;
+          const y = Math.random() * (H - tileH - 24) + 12;
 
-            const dx = (x + tileW/2) - cx;
-            const dy = (y + tileH/2) - cy;
-            const dist = Math.sqrt(dx*dx + dy*dy);
-            if (dist < clearRadius) continue;
+          const dx = (x + tileW/2) - cx;
+          const dy = (y + tileH/2) - cy;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist < clearRadius) continue;
 
-            const candidate = { x, y, w: tileW, h: tileH };
+          const candidate = { x, y, w: tileW, h: tileH };
 
-            let ok = true;
-            for (const r of rects){
-              if (rectsOverlap(candidate, r, safetyPad)) { ok = false; break; }
-            }
-            if (!ok) continue;
-
-            const edgeDist = Math.min(x, y, W - (x + tileW), H - (y + tileH));
-            const score = dist + edgeDist * 0.25;
-
-            if (score > bestScore){
-              bestScore = score;
-              best = candidate;
-            }
-            if (k > 120 && best) break;
+          let ok = true;
+          for (const r of rects){
+            if (rectsOverlap(candidate, r, safetyPad)) { ok = false; break; }
           }
+          if (!ok) continue;
 
-          const pos = best || {
-            x: 12 + (i * (tileW + safetyPad)) % Math.max(1, (W - tileW - 24)),
-            y: 12 + Math.floor((i * (tileW + safetyPad)) / Math.max(1, (W - tileW - 24))) * (tileH + safetyPad),
-            w: tileW, h: tileH
-          };
+          const edgeDist = Math.min(x, y, W - (x + tileW), H - (y + tileH));
+          const score = dist + edgeDist * 0.25;
 
-          rects.push(pos);
-
-          const rot = (Math.random() * 8 - 4);
-          anchor.style.left = `${pos.x}px`;
-          anchor.style.top  = `${pos.y}px`;
-          anchor.style.transform = `rotate(${rot}deg)`;
-        } else {
-          // Mobile: clear any inline positioning
-          anchor.style.left = "";
-          anchor.style.top = "";
-          anchor.style.transform = "";
+          if (score > bestScore){
+            bestScore = score;
+            best = candidate;
+          }
+          if (k > 160 && best) break;
         }
 
-        // Hover (desktop only)
+        const pos = best || {
+          x: 12 + (i * (tileW + safetyPad)) % Math.max(1, (W - tileW - 24)),
+          y: 12 + Math.floor((i * (tileW + safetyPad)) / Math.max(1, (W - tileW - 24))) * (tileH + safetyPad),
+          w: tileW, h: tileH
+        };
+
+        rects.push(pos);
+
+        const rot = mobile ? (Math.random() * 4 - 2) : (Math.random() * 8 - 4);
+        anchor.style.left = `${pos.x}px`;
+        anchor.style.top  = `${pos.y}px`;
+        anchor.style.transform = `rotate(${rot}deg)`;
+
+        // IMPORTANT: prevent one tile blocking all taps (stack order)
+        anchor.style.zIndex = String(10 + i);
+
+        // Hover only on desktop
         if (!mobile){
           anchor.addEventListener("mouseenter", () => {
             heroInner?.classList.add("is-dim");
@@ -771,9 +744,9 @@
         tile.addEventListener("click", () => openDetail(t, tile, anchor));
         scatter.appendChild(anchor);
 
-        // Drift (desktop only)
-        if (!mobile){
-          const tw = ambientDrift(anchor, i, maxDrift);
+        // Drift (desktop + small drift on mobile)
+        if (driftAmt > 0){
+          const tw = ambientDrift(anchor, i, driftAmt);
           driftTweens.set(anchor, tw);
         }
       });
@@ -788,7 +761,7 @@
 
     gsap.ticker.add(() => {
       if (overlay.classList.contains("is-open")) return;
-      if (isMobile()) return;
+      if (isMobile()) return; // keep mobile calm + performant
 
       gsap.to(scatter, {
         x: mouseX * 14,
@@ -811,7 +784,7 @@
       });
     });
 
-    // ---------- GSAP FLIP open/close (anchor return, plus form click safety) ----------
+    // ---------- GSAP FLIP open/close (anchor return + form safety) ----------
     function openDetail(item, tileEl, anchorEl){
       active = item;
       slideIndex = 0;
@@ -830,7 +803,6 @@
       const media = detailCard.querySelector(".detail-card__media");
       media.appendChild(tileEl);
 
-      // Ensure visible for FLIP, but never intercept clicks
       tileEl.style.display = "block";
       tileEl.style.pointerEvents = "none";
 
@@ -852,7 +824,7 @@
         ease: "power3.inOut",
         absolute: true,
         onComplete: () => {
-          // Critical: remove tile from layout so it cannot block form inputs
+          // remove tile from layout so it can’t block the form
           gsap.to(tileEl, {
             opacity: 0,
             duration: 0.15,
@@ -876,7 +848,6 @@
       const tileEl = activeTileEl;
       const anchorEl = activeAnchorEl;
 
-      // Bring tile back for flip-out animation
       tileEl.style.display = "block";
       tileEl.style.pointerEvents = "none";
       gsap.set(tileEl, { opacity: 1 });
@@ -903,7 +874,6 @@
 
           resetDetailViews();
 
-          // Restore clickability back home
           tileEl.style.pointerEvents = "auto";
 
           const drift = driftTweens.get(anchorEl);
@@ -932,7 +902,10 @@
       if (e.key === "ArrowRight") showSlide(1);
     });
 
-    window.addEventListener("resize", layoutTiles);
+    window.addEventListener("resize", () => {
+      // On resize/orientation change, re-layout with correct mode sizing
+      layoutTiles();
+    });
 
     // Boot
     layoutTiles();
