@@ -1,0 +1,727 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>IF Studio</title>
+
+  <!-- Favicons -->
+  <link rel="icon" href="favicons/favicon.ico" sizes="any">
+  <link rel="icon" href="favicons/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicons/favicon-96x96.png" sizes="96x96" type="image/png">
+  <link rel="apple-touch-icon" href="favicons/apple-touch-icon.png">
+  <link rel="manifest" href="favicons/site.webmanifest">
+  <meta name="theme-color" content="#000000">
+
+  <style>
+    :root{
+      --bg:#070707;
+      --fg:#f4f4f4;
+      --muted: rgba(244,244,244,.65);
+      --shadow: 0 24px 90px rgba(0,0,0,.65);
+      --radius: 22px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      overflow:hidden;
+    }
+    #scene{ position:fixed; inset:0; overflow:hidden; }
+    #scatter{ position:absolute; inset:0; will-change: transform; }
+    .vignette{
+      position:absolute; inset:-20%;
+      background: radial-gradient(closest-side, rgba(0,0,0,0) 50%, rgba(0,0,0,.70) 100%);
+      pointer-events:none;
+    }
+    .grain{
+      position:absolute; inset:0;
+      pointer-events:none;
+      opacity:.06;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E");
+      mix-blend-mode:overlay;
+    }
+    .anchor{
+      position:absolute;
+      width: clamp(220px, 22vw, 460px);
+      aspect-ratio: 5 / 4;
+      transform: translate3d(0,0,0);
+      will-change: transform;
+    }
+    .tile{
+      position:absolute;
+      inset:0;
+      border-radius: 24px;
+      background: rgba(255,255,255,.045);
+      border: 1px solid rgba(255,255,255,.12);
+      box-shadow: 0 22px 80px rgba(0,0,0,.62);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      cursor:pointer;
+      padding:0;
+      display:block;
+      overflow:hidden;
+      transform: translate3d(0,0,0);
+      transition: background .25s ease, border-color .25s ease;
+    }
+    .tile:hover{
+      background: rgba(255,255,255,.07);
+      border-color: rgba(255,255,255,.18);
+    }
+    .tile:before{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:
+        radial-gradient(120% 90% at 30% 20%, rgba(255,255,255,.08), rgba(255,255,255,0) 55%),
+        radial-gradient(120% 90% at 70% 80%, rgba(255,255,255,.05), rgba(255,255,255,0) 60%);
+      opacity:.9;
+      pointer-events:none;
+    }
+    .tile__text{
+      position:absolute;
+      inset:0;
+      display:grid;
+      place-items:center;
+      padding: 22px;
+      text-align:center;
+      font-size: clamp(22px, 3.2vw, 56px);
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: rgba(244,244,244,.94);
+      z-index: 1;
+      text-shadow: 0 18px 70px rgba(0,0,0,.70);
+      user-select:none;
+      pointer-events:none;
+    }
+    .hero{
+      position:fixed;
+      inset:0;
+      display:grid;
+      place-items:center;
+      text-align:center;
+      padding: 40px 18px;
+      pointer-events:none;
+      z-index: 5;
+    }
+    #heroInner{
+      transition: opacity .25s ease, transform .25s ease;
+      will-change: opacity, transform;
+    }
+    #heroInner.is-dim{
+      opacity: .78;
+      transform: translateY(2px);
+    }
+    .hero__logo{
+      width: min(720px, 78vw);
+      height: auto;
+      display:block;
+      margin: 0 auto;
+      filter: drop-shadow(0 18px 60px rgba(0,0,0,.65));
+      transform: translateZ(0);
+    }
+    .hero__desc{
+      margin: 16px auto 0;
+      max-width: 58ch;
+      color: var(--muted);
+      font-size: clamp(14px, 1.4vw, 18px);
+    }
+    .hero__hint{
+      margin: 18px 0 0;
+      font-size: 12px;
+      color: rgba(244,244,244,.45);
+      letter-spacing:.06em;
+      text-transform: uppercase;
+    }
+    .overlay{
+      position:fixed;
+      inset:0;
+      background: rgba(0,0,0,.72);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      opacity:0;
+      pointer-events:none;
+      transition: opacity .2s ease;
+      z-index: 20;
+    }
+    .overlay.is-open{ opacity:1; pointer-events:auto; }
+    .overlay__close{
+      position:absolute;
+      top:18px; right:18px;
+      width:44px; height:44px;
+      border-radius: 999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.06);
+      color: var(--fg);
+      cursor:pointer;
+      font-size:18px;
+      z-index: 30;
+    }
+    .overlay__shell{
+      position:absolute;
+      inset:0;
+      display:grid;
+      place-items:center;
+      padding: 28px 18px;
+    }
+    .detail-card{
+      width: min(1100px, calc(100vw - 40px));
+      border-radius: var(--radius);
+      overflow:hidden;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.03);
+      box-shadow: var(--shadow);
+    }
+    .detail-card__media{
+      position:relative;
+      height: min(70vh, 720px);
+      background: rgba(255,255,255,.02);
+    }
+    .detail-card__media img{
+      width:100%;
+      height:100%;
+      object-fit:contain;
+      background: rgba(0,0,0,.35);
+    }
+    .detail-card__gallery{ position:absolute; inset:0; }
+    .detail-card__panel{ position:absolute; inset:0; display:grid; place-items:center; padding: 34px 22px; }
+    .panelContent{
+      width: min(820px, 100%);
+      background: rgba(255,255,255,.03);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 18px;
+      padding: 22px;
+      box-shadow: 0 18px 70px rgba(0,0,0,.55);
+    }
+    .panelContent p{ margin: 0 0 12px; color: rgba(244,244,244,.80); line-height: 1.65; }
+    .formRow{ display:grid; gap:10px; margin-top: 14px; }
+    .input, .textarea{
+      width:100%;
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 14px;
+      color: var(--fg);
+      padding: 12px 12px;
+      outline: none;
+      font-size: 14px;
+    }
+    .textarea{ min-height: 140px; resize: vertical; }
+    .btn{
+      margin-top: 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.08);
+      color: var(--fg);
+      padding: 12px 14px;
+      cursor: pointer;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      font-size: 12px;
+    }
+    .btn:hover{ background: rgba(255,255,255,.12); }
+    .smallMuted{ color: rgba(244,244,244,.55); font-size: 12px; margin-top: 10px; }
+    .nav{
+      position:absolute;
+      top:50%;
+      transform: translateY(-50%);
+      width:54px;
+      height:54px;
+      border-radius: 999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.25);
+      color: var(--fg);
+      font-size: 34px;
+      cursor:pointer;
+      display:grid;
+      place-items:center;
+      z-index: 2;
+      user-select:none;
+    }
+    .nav--left{ left:14px; }
+    .nav--right{ right:14px; }
+    .detail-card__caption{ padding: 18px 18px 22px; }
+    .detail-card__caption h2{ margin:0; font-size: 18px; letter-spacing:.05em; text-transform: uppercase; }
+    .detail-card__caption p{ margin:10px 0 0; color: var(--muted); max-width: 80ch; line-height:1.55; }
+    @media (hover: none){
+      body{ overflow:auto; }
+      .hero{ position:sticky; top:0; }
+      #scene{ position:relative; height: 100svh; }
+    }
+  </style>
+</head>
+<body>
+  <div id="scene">
+    <div class="vignette"></div>
+    <div class="grain"></div>
+    <div id="scatter" aria-hidden="true"></div>
+  </div>
+
+  <main class="hero">
+    <div id="heroInner">
+      <img class="hero__logo" src="images/logo.png" alt="IF Studio logo" />
+      <p class="hero__desc">Art & web — minimal, interactive, built with intention.</p>
+      <p class="hero__hint">Click any tile to enter.</p>
+    </div>
+  </main>
+
+  <div id="overlay" class="overlay" aria-hidden="true">
+    <button class="overlay__close" id="closeBtn" aria-label="Close">✕</button>
+
+    <div class="overlay__shell">
+      <div id="detailCard" class="detail-card">
+        <div class="detail-card__media">
+          <div id="galleryView" class="detail-card__gallery">
+            <button class="nav nav--left" id="prevBtn" aria-label="Previous">‹</button>
+            <img id="detailImg" alt="" />
+            <button class="nav nav--right" id="nextBtn" aria-label="Next">›</button>
+          </div>
+
+          <div id="panelView" class="detail-card__panel" hidden>
+            <div id="panelContent" class="panelContent"></div>
+          </div>
+        </div>
+
+        <div class="detail-card__caption">
+          <h2 id="detailTitle"></h2>
+          <p id="detailDesc"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/gsap@3/dist/gsap.min.js"></script>
+  <script src="https://unpkg.com/gsap@3/dist/Flip.min.js"></script>
+
+  <script>
+    gsap.registerPlugin(Flip);
+    const FORMSPREE_ENDPOINT = "https://formspree.io/f/mvzowbvw";
+
+    const tilesData = [
+      {
+        id:"about",
+        text:"ABOUT",
+        title:"About",
+        mode:"about",
+        aboutHtml: `
+          <p><b>About</b></p>
+          <p>Placeholder about text. Replace with your story, values, and what you love building.</p>
+          <p><span class="smallMuted">Tip:</span> Keep it short, confident, and human.</p>
+        `
+      },
+      {
+        id:"prices",
+        text:"PRICES",
+        title:"Prices",
+        mode:"gallery",
+        desc:"Pricing guide",
+        slides: [
+          "images/slides/pricing-01.png",
+          "images/slides/pricing-02.png",
+          "images/slides/pricing-03.png",
+          "images/slides/pricing-04.png"
+        ]
+      },
+      { id:"contact", text:"CONTACT", title:"Contact", mode:"contact" },
+      {
+        id:"web", text:"WEB BUILDS", title:"Web Builds", mode:"gallery",
+        desc:"Placeholder description for Web Builds.",
+        slides:["images/slides/case-01.jpg","images/slides/case-02.jpg"]
+      },
+      {
+        id:"logos", text:"LOGOS", title:"Logos", mode:"gallery",
+        desc:"Placeholder description for Logos.",
+        slides:["images/slides/brand-01.jpg","images/slides/brand-02.jpg"]
+      },
+      {
+        id:"graphics", text:"GRAPHICS", title:"Graphics", mode:"gallery",
+        desc:"Placeholder description for Graphics.",
+        slides:["images/slides/art-01.jpg","images/slides/art-02.jpg","images/slides/art-03.jpg"]
+      },
+    ];
+
+    const scatter = document.getElementById("scatter");
+    const overlay = document.getElementById("overlay");
+    const closeBtn = document.getElementById("closeBtn");
+    const prevBtn = document.getElementById("prevBtn");
+    const nextBtn = document.getElementById("nextBtn");
+    const detailCard = document.getElementById("detailCard");
+    const detailImg = document.getElementById("detailImg");
+    const detailTitle = document.getElementById("detailTitle");
+    const detailDesc = document.getElementById("detailDesc");
+    const galleryView = document.getElementById("galleryView");
+    const panelView = document.getElementById("panelView");
+    const panelContent = document.getElementById("panelContent");
+    const heroInner = document.getElementById("heroInner");
+
+    let active = null;
+    let slideIndex = 0;
+    let activeTileEl = null;
+    let activeAnchorEl = null;
+
+    const driftTweens = new WeakMap();
+
+    function showGallery(){
+      panelView.hidden = true;
+      panelView.style.display = "none";
+      galleryView.hidden = false;
+      galleryView.style.display = "block";
+    }
+    function showPanel(){
+      galleryView.hidden = true;
+      galleryView.style.display = "none";
+      panelView.hidden = false;
+      panelView.style.display = "grid";
+    }
+    function resetDetailViews(){
+      panelContent.innerHTML = "";
+      detailImg.removeAttribute("src");
+      prevBtn.style.display = "none";
+      nextBtn.style.display = "none";
+      showGallery();
+    }
+
+    function setDetailContent(item){
+      resetDetailViews();
+
+      detailTitle.textContent = (item.title || "").toUpperCase();
+      detailDesc.textContent = "";
+
+      const mode = item.mode || "gallery";
+
+      if (mode === "gallery"){
+        showGallery();
+        detailDesc.textContent = item.desc || "";
+        detailImg.src = item.slides?.[slideIndex] || "";
+        const multi = (item.slides?.length || 0) > 1;
+        prevBtn.style.display = multi ? "grid" : "none";
+        nextBtn.style.display = multi ? "grid" : "none";
+        return;
+      }
+
+      showPanel();
+
+      if (mode === "about"){
+        panelContent.innerHTML = `${item.aboutHtml || "<p>About placeholder.</p>"}`;
+      } else if (mode === "contact"){
+        panelContent.innerHTML = `
+          <p><b>Send a message</b></p>
+          <form id="contactForm" method="POST">
+            <div class="formRow">
+              <input class="input" name="name" placeholder="Name" required />
+              <input class="input" type="email" name="email" placeholder="Email" required />
+              <input class="input" name="subject" placeholder="Subject" />
+              <textarea class="textarea" name="message" placeholder="Message" required></textarea>
+              <button class="btn" type="submit">Send</button>
+              <div class="smallMuted" id="formNote">I’ll get back to you soon.</div>
+            </div>
+          </form>
+        `;
+        wireContactForm();
+      } else {
+        panelContent.innerHTML = `<p>Panel placeholder.</p>`;
+      }
+    }
+
+    function wireContactForm(){
+      const form = document.getElementById("contactForm");
+      const note = document.getElementById("formNote");
+      if (!form) return;
+
+      form.action = FORMSPREE_ENDPOINT;
+      form.method = "POST";
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        try {
+          const res = await fetch(form.action, {
+            method: "POST",
+            body: new FormData(form),
+            headers: { Accept: "application/json" },
+          });
+
+          if (res.ok) {
+            form.reset();
+            if (note) note.textContent = "Sent. Thanks — I’ll reply shortly.";
+          } else {
+            if (note) note.textContent = "Hmm — something went wrong. Try again or email me directly.";
+          }
+        } catch (err) {
+          if (note) note.textContent = "Network error — please try again in a moment.";
+        }
+      });
+    }
+
+    function showSlide(delta){
+      if (!active || (active.mode || "gallery") !== "gallery") return;
+      slideIndex = (slideIndex + delta + active.slides.length) % active.slides.length;
+
+      gsap.to(detailImg, { opacity: 0, duration: 0.12, onComplete: () => {
+        detailImg.src = active.slides[slideIndex];
+        gsap.to(detailImg, { opacity: 1, duration: 0.18 });
+      }});
+    }
+
+    // ---------- Placement (avoid overlap) ----------
+    function clamp(min, val, max){ return Math.max(min, Math.min(max, val)); }
+    function rectsOverlap(a, b, pad=0){
+      return !(
+        a.x + a.w + pad <= b.x ||
+        b.x + b.w + pad <= a.x ||
+        a.y + a.h + pad <= b.y ||
+        b.y + b.h + pad <= a.y
+      );
+    }
+    function computeTileSize(){
+      const w = window.innerWidth;
+      const tileW = clamp(220, w * 0.22, 460);
+      const tileH = tileW * (4/5);
+      return { tileW, tileH };
+    }
+
+    function layoutTiles(){
+      scatter.innerHTML = "";
+      const W = window.innerWidth;
+      const H = window.innerHeight;
+
+      const { tileW, tileH } = computeTileSize();
+
+      const maxDrift = 16;
+      const safetyPad = 26 + maxDrift;
+      const rects = [];
+
+      const cx = W / 2, cy = H / 2;
+      const clearRadius = Math.min(W, H) * 0.30;
+
+      tilesData.forEach((t, i) => {
+        const anchor = document.createElement("div");
+        anchor.className = "anchor";
+        anchor.dataset.id = t.id;
+
+        const tile = document.createElement("button");
+        tile.className = "tile";
+        tile.type = "button";
+        tile.dataset.id = t.id;
+        tile.setAttribute("aria-label", `Open ${t.title || t.text}`);
+
+        const txt = document.createElement("div");
+        txt.className = "tile__text";
+        txt.textContent = (t.text || t.title || "").toUpperCase();
+        tile.appendChild(txt);
+        anchor.appendChild(tile);
+
+        const tries = 1400;
+        let best = null;
+        let bestScore = -1e9;
+
+        for (let k = 0; k < tries; k++){
+          const x = Math.random() * (W - tileW - 24) + 12;
+          const y = Math.random() * (H - tileH - 24) + 12;
+
+          const dx = (x + tileW/2) - cx;
+          const dy = (y + tileH/2) - cy;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist < clearRadius) continue;
+
+          const candidate = { x, y, w: tileW, h: tileH };
+
+          let ok = true;
+          for (const r of rects){
+            if (rectsOverlap(candidate, r, safetyPad)) { ok = false; break; }
+          }
+          if (!ok) continue;
+
+          const edgeDist = Math.min(x, y, W - (x + tileW), H - (y + tileH));
+          const score = dist + edgeDist * 0.25;
+
+          if (score > bestScore){
+            bestScore = score;
+            best = candidate;
+          }
+          if (k > 120 && best) break;
+        }
+
+        const pos = best || {
+          x: 12 + (i * (tileW + safetyPad)) % Math.max(1, (W - tileW - 24)),
+          y: 12 + Math.floor((i * (tileW + safetyPad)) / Math.max(1, (W - tileW - 24))) * (tileH + safetyPad),
+          w: tileW, h: tileH
+        };
+
+        rects.push(pos);
+
+        const rot = (Math.random() * 8 - 4);
+        anchor.style.left = `${pos.x}px`;
+        anchor.style.top  = `${pos.y}px`;
+        anchor.style.transform = `rotate(${rot}deg)`;
+
+        anchor.addEventListener("mouseenter", () => {
+          heroInner?.classList.add("is-dim");
+          gsap.to(anchor, { duration: 0.25, scale: 1.03, y: -8, ease: "power2.out" });
+        });
+        anchor.addEventListener("mouseleave", () => {
+          heroInner?.classList.remove("is-dim");
+          gsap.to(anchor, { duration: 0.35, scale: 1, y: 0, ease: "power2.out" });
+        });
+
+        tile.addEventListener("click", () => openDetail(t, tile, anchor));
+        scatter.appendChild(anchor);
+
+        const tw = ambientDrift(anchor, i, maxDrift);
+        driftTweens.set(anchor, tw);
+      });
+    }
+
+    // --- Parallax ---
+    let mouseX = 0, mouseY = 0;
+    window.addEventListener("mousemove", (e) => {
+      mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+      mouseY = (e.clientY / window.innerHeight) * 2 - 1;
+    });
+
+    gsap.ticker.add(() => {
+      if (overlay.classList.contains("is-open")) return;
+
+      gsap.to(scatter, {
+        x: mouseX * 14,
+        y: mouseY * 10,
+        duration: 0.6,
+        overwrite: true,
+        ease: "power2.out",
+      });
+
+      const anchors = scatter.querySelectorAll(".anchor");
+      anchors.forEach((el, i) => {
+        const depth = 5 + (i % 4) * 3;
+        gsap.to(el, {
+          x: mouseX * depth,
+          y: mouseY * depth * 0.7,
+          duration: 0.9,
+          overwrite: true,
+          ease: "power2.out",
+        });
+      });
+    });
+
+    function ambientDrift(anchorEl, i, maxDrift){
+      const amp = maxDrift * (0.85 + Math.random() * 0.35);
+      const speed = 0.18 + Math.random() * 0.22;
+
+      return gsap.to(anchorEl, {
+        x: `+=${amp}`,
+        y: `+=${amp * 0.65}`,
+        duration: 3.6 + speed,
+        yoyo: true,
+        repeat: -1,
+        ease: "sine.inOut",
+        delay: i * 0.12,
+      });
+    }
+
+    // --- GSAP Flip open/close using ANCHOR as origin ---
+    function openDetail(item, tileEl, anchorEl){
+      active = item;
+      slideIndex = 0;
+      activeTileEl = tileEl;
+      activeAnchorEl = anchorEl;
+
+      const drift = driftTweens.get(anchorEl);
+      if (drift) drift.pause();
+
+      setDetailContent(item);
+
+      overlay.classList.add("is-open");
+      overlay.setAttribute("aria-hidden", "false");
+
+      const state = Flip.getState(tileEl);
+      const media = detailCard.querySelector(".detail-card__media");
+      media.appendChild(tileEl);
+
+      gsap.set(tileEl, {
+        position: "absolute",
+        inset: "0",
+        width: "100%",
+        height: "100%",
+        borderRadius: "22px",
+        transform: "none",
+        x: 0, y: 0, scale: 1
+      });
+
+      gsap.set(detailImg, { opacity: 0 });
+
+      Flip.from(state, {
+        duration: 0.6,
+        ease: "power3.inOut",
+        absolute: true,
+        onComplete: () => {
+          gsap.to(tileEl, { opacity: 0, duration: 0.15 });
+          if ((item.mode || "gallery") === "gallery"){
+            gsap.to(detailImg, { opacity: 1, duration: 0.22 });
+          }
+        }
+      });
+    }
+
+    function closeDetail(){
+      if (!active || !activeTileEl || !activeAnchorEl){
+        overlay.classList.remove("is-open");
+        overlay.setAttribute("aria-hidden", "true");
+        return;
+      }
+
+      const tileEl = activeTileEl;
+      const anchorEl = activeAnchorEl;
+
+      gsap.set(tileEl, { opacity: 1 });
+
+      const state = Flip.getState(tileEl);
+      anchorEl.appendChild(tileEl);
+
+      gsap.set(tileEl, {
+        position: "absolute",
+        inset: "0",
+        width: "100%",
+        height: "100%",
+        borderRadius: "24px",
+        x: 0, y: 0, scale: 1
+      });
+
+      Flip.from(state, {
+        duration: 0.55,
+        ease: "power3.inOut",
+        absolute: true,
+        onComplete: () => {
+          overlay.classList.remove("is-open");
+          overlay.setAttribute("aria-hidden", "true");
+
+          resetDetailViews();
+
+          const drift = driftTweens.get(anchorEl);
+          if (drift) drift.resume();
+
+          active = null;
+          activeTileEl = null;
+          activeAnchorEl = null;
+        }
+      });
+    }
+
+    closeBtn.addEventListener("click", closeDetail);
+    prevBtn.addEventListener("click", () => showSlide(-1));
+    nextBtn.addEventListener("click", () => showSlide(1));
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) closeDetail(); });
+
+    window.addEventListener("keydown", (e) => {
+      if (!overlay.classList.contains("is-open")) return;
+      if (e.key === "Escape") closeDetail();
+      if (e.key === "ArrowLeft") showSlide(-1);
+      if (e.key === "ArrowRight") showSlide(1);
+    });
+
+    window.addEventListener("resize", layoutTiles);
+    layoutTiles();
+  </script>
+</body>
+</html>
