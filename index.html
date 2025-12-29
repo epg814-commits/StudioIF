@@ -300,6 +300,32 @@
       .hero{ position:sticky; top:0; }
       #scene{ position:relative; height: 100svh; }
     }
+    /* Hard guarantee: when overlay is showing a panel (ABOUT/CONTACT),
+   the gallery layer cannot steal clicks and the form is always clickable */
+.overlay.mode-panel #galleryView {
+  pointer-events: none !important;
+}
+
+.overlay.mode-panel #panelView,
+.overlay.mode-panel #panelView * {
+  pointer-events: auto !important;
+}
+
+/* When overlay is showing gallery mode, allow gallery clicks again */
+.overlay.mode-gallery #galleryView,
+.overlay.mode-gallery #galleryView * {
+  pointer-events: auto !important;
+}
+
+.overlay.mode-gallery #panelView {
+  pointer-events: none !important;
+}
+
+/* Also force hidden sections to actually not exist visually/click-wise */
+#galleryView[hidden], #panelView[hidden] {
+  display: none !important;
+}
+
   </style>
 </head>
 
@@ -431,19 +457,29 @@
     const driftTweens = new WeakMap();
 
     // ---------- Detail view helpers ----------
-    function showGallery(){
-      panelView.hidden = true;
-      panelView.style.display = "none";
-      galleryView.hidden = false;
-      galleryView.style.display = "block";
-    }
+function showGallery() {
+  overlay.classList.add("mode-gallery");
+  overlay.classList.remove("mode-panel");
 
-    function showPanel(){
-      galleryView.hidden = true;
-      galleryView.style.display = "none";
-      panelView.hidden = false;
-      panelView.style.display = "grid";
-    }
+  panelView.hidden = true;
+  galleryView.hidden = false;
+
+  // (Optional) keep nav visible only in gallery
+  prevBtn.style.pointerEvents = "auto";
+  nextBtn.style.pointerEvents = "auto";
+}
+
+function showPanel() {
+  overlay.classList.add("mode-panel");
+  overlay.classList.remove("mode-gallery");
+
+  galleryView.hidden = true;
+  panelView.hidden = false;
+
+  // (Optional) avoid nav capturing clicks in panel mode
+  prevBtn.style.pointerEvents = "none";
+  nextBtn.style.pointerEvents = "none";
+}
 
     function resetDetailViews(){
       panelContent.innerHTML = "";
