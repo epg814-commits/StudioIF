@@ -11,7 +11,7 @@
   <link rel="icon" href="favicons/favicon-96x96.png" sizes="96x96" type="image/png">
   <link rel="apple-touch-icon" href="favicons/apple-touch-icon.png">
   <link rel="manifest" href="favicons/site.webmanifest">
-  <meta name="theme-color" content="#000000">
+  <meta name="theme-color" content="#000000" />
 
   <style>
     :root{
@@ -22,9 +22,8 @@
       --radius: 22px;
     }
 
-    *{box-sizing:border-box}
-    html,body{height:100%}
-
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
     body{
       margin:0;
       background: var(--bg);
@@ -33,6 +32,7 @@
       overflow:hidden;
     }
 
+    /* ---------- Background Scene ---------- */
     #scene{ position:fixed; inset:0; overflow:hidden; }
     #scatter{ position:absolute; inset:0; will-change: transform; }
 
@@ -45,11 +45,11 @@
       position:absolute; inset:0;
       pointer-events:none;
       opacity:.06;
+      mix-blend-mode: overlay;
       background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E");
-      mix-blend-mode:overlay;
     }
 
-    /* Anchor holds the "home" position */
+    /* ---------- Floating Tiles ---------- */
     .anchor{
       position:absolute;
       width: clamp(220px, 22vw, 460px);
@@ -58,7 +58,6 @@
       will-change: transform;
     }
 
-    /* Tile fills its anchor */
     .tile{
       position:absolute;
       inset:0;
@@ -79,8 +78,7 @@
       background: rgba(255,255,255,.07);
       border-color: rgba(255,255,255,.18);
     }
-
-    .tile:before{
+    .tile::before{
       content:"";
       position:absolute;
       inset:0;
@@ -98,19 +96,17 @@
       place-items:center;
       padding: 22px;
       text-align:center;
-
       font-size: clamp(22px, 3.2vw, 56px);
       letter-spacing: .18em;
       text-transform: uppercase;
       color: rgba(244,244,244,.94);
-      z-index: 1;
-
       text-shadow: 0 18px 70px rgba(0,0,0,.70);
       user-select:none;
       pointer-events:none;
+      z-index:1;
     }
 
-    /* Foreground hero */
+    /* ---------- Hero ---------- */
     .hero{
       position:fixed;
       inset:0;
@@ -151,7 +147,7 @@
       text-transform: uppercase;
     }
 
-    /* Overlay */
+    /* ---------- Overlay ---------- */
     .overlay{
       position:fixed;
       inset:0;
@@ -200,15 +196,23 @@
       height: min(70vh, 720px);
       background: rgba(255,255,255,.02);
     }
+
+    /* These z-indexes guarantee the panel is always clickable */
+    .detail-card__gallery{ position:absolute; inset:0; z-index: 1; }
+    .detail-card__panel{
+      position:absolute; inset:0;
+      display:grid; place-items:center;
+      padding: 34px 22px;
+      z-index: 5;
+      pointer-events:auto;
+    }
+
     .detail-card__media img{
       width:100%;
       height:100%;
       object-fit:contain;
       background: rgba(0,0,0,.35);
     }
-
-    .detail-card__gallery{ position:absolute; inset:0; }
-    .detail-card__panel{ position:absolute; inset:0; display:grid; place-items:center; padding: 34px 22px; }
 
     .panelContent{
       width: min(820px, 100%);
@@ -218,7 +222,11 @@
       padding: 22px;
       box-shadow: 0 18px 70px rgba(0,0,0,.55);
     }
-    .panelContent p{ margin: 0 0 12px; color: rgba(244,244,244,.80); line-height: 1.65; }
+    .panelContent p{
+      margin: 0 0 12px;
+      color: rgba(244,244,244,.80);
+      line-height: 1.65;
+    }
 
     .formRow{ display:grid; gap:10px; margin-top: 14px; }
     .input, .textarea{
@@ -246,7 +254,12 @@
       font-size: 12px;
     }
     .btn:hover{ background: rgba(255,255,255,.12); }
-    .smallMuted{ color: rgba(244,244,244,.55); font-size: 12px; margin-top: 10px; }
+
+    .smallMuted{
+      color: rgba(244,244,244,.55);
+      font-size: 12px;
+      margin-top: 10px;
+    }
 
     .nav{
       position:absolute;
@@ -269,18 +282,23 @@
     .nav--right{ right:14px; }
 
     .detail-card__caption{ padding: 18px 18px 22px; }
-    .detail-card__caption h2{ margin:0; font-size: 18px; letter-spacing:.05em; text-transform: uppercase; }
-    .detail-card__caption p{ margin:10px 0 0; color: var(--muted); max-width: 80ch; line-height:1.55; }
+    .detail-card__caption h2{
+      margin:0;
+      font-size: 18px;
+      letter-spacing:.05em;
+      text-transform: uppercase;
+    }
+    .detail-card__caption p{
+      margin:10px 0 0;
+      color: var(--muted);
+      max-width: 80ch;
+      line-height:1.55;
+    }
 
     @media (hover: none){
       body{ overflow:auto; }
       .hero{ position:sticky; top:0; }
       #scene{ position:relative; height: 100svh; }
-    }
-
-    /* ✅ NEW: ensure the FLIP tile never blocks form clicks while in the modal */
-    .detail-card__media .tile{
-      pointer-events:none !important;
     }
   </style>
 </head>
@@ -325,6 +343,7 @@
     </div>
   </div>
 
+  <!-- GSAP -->
   <script src="https://unpkg.com/gsap@3/dist/gsap.min.js"></script>
   <script src="https://unpkg.com/gsap@3/dist/Flip.min.js"></script>
 
@@ -333,6 +352,7 @@
 
     const FORMSPREE_ENDPOINT = "https://formspree.io/f/mvzowbvw";
 
+    // ====== EDIT THESE (your content + slide filenames) ======
     const tilesData = [
       {
         id:"about",
@@ -384,40 +404,47 @@
         slides:["images/slides/art-01.jpg","images/slides/art-02.jpg","images/slides/art-03.jpg"]
       },
     ];
+    // =========================================================
 
-    const scatter = document.getElementById("scatter");
-    const overlay = document.getElementById("overlay");
-    const closeBtn = document.getElementById("closeBtn");
-    const prevBtn = document.getElementById("prevBtn");
-    const nextBtn = document.getElementById("nextBtn");
-    const detailCard = document.getElementById("detailCard");
-    const detailImg = document.getElementById("detailImg");
-    const detailTitle = document.getElementById("detailTitle");
-    const detailDesc = document.getElementById("detailDesc");
-    const galleryView = document.getElementById("galleryView");
-    const panelView = document.getElementById("panelView");
-    const panelContent = document.getElementById("panelContent");
-    const heroInner = document.getElementById("heroInner");
+    const $ = (id) => document.getElementById(id);
+
+    const scatter = $("scatter");
+    const overlay = $("overlay");
+    const closeBtn = $("closeBtn");
+    const prevBtn = $("prevBtn");
+    const nextBtn = $("nextBtn");
+    const detailCard = $("detailCard");
+    const detailImg = $("detailImg");
+    const detailTitle = $("detailTitle");
+    const detailDesc = $("detailDesc");
+    const galleryView = $("galleryView");
+    const panelView = $("panelView");
+    const panelContent = $("panelContent");
+    const heroInner = $("heroInner");
 
     let active = null;
     let slideIndex = 0;
+
     let activeTileEl = null;
     let activeAnchorEl = null;
 
     const driftTweens = new WeakMap();
 
+    // ---------- Detail view helpers ----------
     function showGallery(){
       panelView.hidden = true;
       panelView.style.display = "none";
       galleryView.hidden = false;
       galleryView.style.display = "block";
     }
+
     function showPanel(){
       galleryView.hidden = true;
       galleryView.style.display = "none";
       panelView.hidden = false;
       panelView.style.display = "grid";
     }
+
     function resetDetailViews(){
       panelContent.innerHTML = "";
       detailImg.removeAttribute("src");
@@ -447,15 +474,18 @@
       showPanel();
 
       if (mode === "about"){
-        panelContent.innerHTML = `${item.aboutHtml || "<p>About placeholder.</p>"}`;
-      } else if (mode === "contact"){
+        panelContent.innerHTML = item.aboutHtml || "<p>About placeholder.</p>";
+        return;
+      }
+
+      if (mode === "contact"){
         panelContent.innerHTML = `
           <p><b>Send a message</b></p>
-          <form id="contactForm" method="POST">
+          <form id="contactForm" method="POST" autocomplete="on">
             <div class="formRow">
-              <input class="input" name="name" placeholder="Name" required />
-              <input class="input" type="email" name="email" placeholder="Email" required />
-              <input class="input" name="subject" placeholder="Subject" />
+              <input class="input" name="name" placeholder="Name" autocomplete="name" required />
+              <input class="input" type="email" name="email" placeholder="Email" autocomplete="email" required />
+              <input class="input" name="subject" placeholder="Subject" autocomplete="off" />
               <textarea class="textarea" name="message" placeholder="Message" required></textarea>
               <button class="btn" type="submit">Send</button>
               <div class="smallMuted" id="formNote">I’ll get back to you soon.</div>
@@ -463,9 +493,10 @@
           </form>
         `;
         wireContactForm();
-      } else {
-        panelContent.innerHTML = `<p>Panel placeholder.</p>`;
+        return;
       }
+
+      panelContent.innerHTML = "<p>Panel placeholder.</p>";
     }
 
     function wireContactForm(){
@@ -476,23 +507,24 @@
       form.action = FORMSPREE_ENDPOINT;
       form.method = "POST";
 
+      // AJAX submit (stays on the same page)
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
 
-        try {
+        try{
           const res = await fetch(form.action, {
             method: "POST",
             body: new FormData(form),
-            headers: { Accept: "application/json" },
+            headers: { Accept: "application/json" }
           });
 
-          if (res.ok) {
+          if (res.ok){
             form.reset();
             if (note) note.textContent = "Sent. Thanks — I’ll reply shortly.";
           } else {
             if (note) note.textContent = "Hmm — something went wrong. Try again or email me directly.";
           }
-        } catch (err) {
+        } catch (err){
           if (note) note.textContent = "Network error — please try again in a moment.";
         }
       });
@@ -502,14 +534,19 @@
       if (!active || (active.mode || "gallery") !== "gallery") return;
       slideIndex = (slideIndex + delta + active.slides.length) % active.slides.length;
 
-      gsap.to(detailImg, { opacity: 0, duration: 0.12, onComplete: () => {
-        detailImg.src = active.slides[slideIndex];
-        gsap.to(detailImg, { opacity: 1, duration: 0.18 });
-      }});
+      gsap.to(detailImg, {
+        opacity: 0,
+        duration: 0.12,
+        onComplete: () => {
+          detailImg.src = active.slides[slideIndex];
+          gsap.to(detailImg, { opacity: 1, duration: 0.18 });
+        }
+      });
     }
 
-    // ---------- Placement (avoid overlap) ----------
+    // ---------- Layout (avoid overlap) ----------
     function clamp(min, val, max){ return Math.max(min, Math.min(max, val)); }
+
     function rectsOverlap(a, b, pad=0){
       return !(
         a.x + a.w + pad <= b.x ||
@@ -518,6 +555,7 @@
         b.y + b.h + pad <= a.y
       );
     }
+
     function computeTileSize(){
       const w = window.innerWidth;
       const tileW = clamp(220, w * 0.22, 460);
@@ -525,15 +563,30 @@
       return { tileW, tileH };
     }
 
+    function ambientDrift(anchorEl, i, maxDrift){
+      const amp = maxDrift * (0.85 + Math.random() * 0.35);
+      const speed = 0.18 + Math.random() * 0.22;
+
+      return gsap.to(anchorEl, {
+        x: `+=${amp}`,
+        y: `+=${amp * 0.65}`,
+        duration: 3.6 + speed,
+        yoyo: true,
+        repeat: -1,
+        ease: "sine.inOut",
+        delay: i * 0.12,
+      });
+    }
+
     function layoutTiles(){
       scatter.innerHTML = "";
+
       const W = window.innerWidth;
       const H = window.innerHeight;
-
       const { tileW, tileH } = computeTileSize();
 
       const maxDrift = 16;
-      const safetyPad = 26 + maxDrift;
+      const safetyPad = 26 + maxDrift; // includes drift so text never gets covered
       const rects = [];
 
       const cx = W / 2, cy = H / 2;
@@ -553,9 +606,11 @@
         const txt = document.createElement("div");
         txt.className = "tile__text";
         txt.textContent = (t.text || t.title || "").toUpperCase();
+
         tile.appendChild(txt);
         anchor.appendChild(tile);
 
+        // Find a non-overlapping position (with a center clear zone)
         const tries = 1400;
         let best = null;
         let bestScore = -1e9;
@@ -610,6 +665,7 @@
         });
 
         tile.addEventListener("click", () => openDetail(t, tile, anchor));
+
         scatter.appendChild(anchor);
 
         const tw = ambientDrift(anchor, i, maxDrift);
@@ -617,7 +673,7 @@
       });
     }
 
-    // --- Parallax ---
+    // ---------- Parallax (subtle) ----------
     let mouseX = 0, mouseY = 0;
     window.addEventListener("mousemove", (e) => {
       mouseX = (e.clientX / window.innerWidth) * 2 - 1;
@@ -648,22 +704,7 @@
       });
     });
 
-    function ambientDrift(anchorEl, i, maxDrift){
-      const amp = maxDrift * (0.85 + Math.random() * 0.35);
-      const speed = 0.18 + Math.random() * 0.22;
-
-      return gsap.to(anchorEl, {
-        x: `+=${amp}`,
-        y: `+=${amp * 0.65}`,
-        duration: 3.6 + speed,
-        yoyo: true,
-        repeat: -1,
-        ease: "sine.inOut",
-        delay: i * 0.12,
-      });
-    }
-
-    // --- GSAP Flip open/close using ANCHOR as origin ---
+    // ---------- GSAP FLIP open/close (anchor return) ----------
     function openDetail(item, tileEl, anchorEl){
       active = item;
       slideIndex = 0;
@@ -678,12 +719,14 @@
       overlay.classList.add("is-open");
       overlay.setAttribute("aria-hidden", "false");
 
+      // FLIP from tile-in-anchor -> tile-in-overlay
       const state = Flip.getState(tileEl);
       const media = detailCard.querySelector(".detail-card__media");
       media.appendChild(tileEl);
 
-      // ✅ NEW: while in overlay, tile should never capture clicks
-      tileEl.style.pointerEvents = "none";
+      // Ensure it’s visible for animation
+      tileEl.style.display = "block";
+      tileEl.style.pointerEvents = "none"; // belt & suspenders
 
       gsap.set(tileEl, {
         position: "absolute",
@@ -692,7 +735,8 @@
         height: "100%",
         borderRadius: "22px",
         transform: "none",
-        x: 0, y: 0, scale: 1
+        x: 0, y: 0, scale: 1,
+        opacity: 1
       });
 
       gsap.set(detailImg, { opacity: 0 });
@@ -702,7 +746,16 @@
         ease: "power3.inOut",
         absolute: true,
         onComplete: () => {
-          gsap.to(tileEl, { opacity: 0, duration: 0.15 });
+          // CRITICAL FIX:
+          // Make the tile NOT exist in layout so it can’t block the contact form.
+          gsap.to(tileEl, {
+            opacity: 0,
+            duration: 0.15,
+            onComplete: () => {
+              tileEl.style.display = "none";
+            }
+          });
+
           if ((item.mode || "gallery") === "gallery"){
             gsap.to(detailImg, { opacity: 1, duration: 0.22 });
           }
@@ -720,13 +773,13 @@
       const tileEl = activeTileEl;
       const anchorEl = activeAnchorEl;
 
+      // Bring tile back for flip-out animation
+      tileEl.style.display = "block";
+      tileEl.style.pointerEvents = "none";
       gsap.set(tileEl, { opacity: 1 });
 
       const state = Flip.getState(tileEl);
       anchorEl.appendChild(tileEl);
-
-      // ✅ Restore clicks once it’s back home
-      tileEl.style.pointerEvents = "auto";
 
       gsap.set(tileEl, {
         position: "absolute",
@@ -745,8 +798,10 @@
           overlay.classList.remove("is-open");
           overlay.setAttribute("aria-hidden", "true");
 
-          // Clear panel/gallery so next open always starts clean
           resetDetailViews();
+
+          // Restore interaction once it’s back home
+          tileEl.style.pointerEvents = "auto";
 
           const drift = driftTweens.get(anchorEl);
           if (drift) drift.resume();
@@ -758,10 +813,14 @@
       });
     }
 
+    // ---------- Events ----------
     closeBtn.addEventListener("click", closeDetail);
     prevBtn.addEventListener("click", () => showSlide(-1));
     nextBtn.addEventListener("click", () => showSlide(1));
-    overlay.addEventListener("click", (e) => { if (e.target === overlay) closeDetail(); });
+
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) closeDetail();
+    });
 
     window.addEventListener("keydown", (e) => {
       if (!overlay.classList.contains("is-open")) return;
@@ -771,6 +830,8 @@
     });
 
     window.addEventListener("resize", layoutTiles);
+
+    // Boot
     layoutTiles();
   </script>
 </body>
