@@ -249,6 +249,16 @@
       body{ overflow:auto; }
       .hero{ position:sticky; top:0; }
       #scene{ position:relative; height: 100svh; }
+ 
+.detail-card__media .tile {
+  pointer-events: none !important;
+}
+
+/* Also ensure the panel is always clickable */
+.detail-card__panel {
+  pointer-events: auto;
+}
+
     }
   </style>
 </head>
