@@ -148,8 +148,6 @@
       letter-spacing:.06em;
       text-transform: uppercase;
     }
-
-    /* ---------- Mobile gallery cue ---------- */
     .mobileCue{
       display:none;
       margin-top: 8px;
@@ -322,55 +320,54 @@
 
     #galleryView[hidden], #panelView[hidden] { display:none !important; }
 
-    /* ---------- Mobile: FLOATING tiles + smaller hero + scroll ---------- */
+    /* ---------- Mobile: hero at TOP, tiles BELOW it (still floating) ---------- */
     @media (max-width: 820px){
       body{ overflow:auto; }
 
-      /* scene is a scrollable section */
+      /* Let the scene scroll with the page */
       #scene{
         position: relative;
-        min-height: 165svh;  /* extra runway */
-        overflow: visible;   /* don't clip taps */
+        min-height: 170svh;
+        overflow: visible;
       }
 
-      /* scatter stays floating */
       #scatter{
         position:absolute;
         inset:0;
         transform:none !important;
       }
 
-      /* HERO: NOT full screen on mobile */
+      /* Hero becomes a normal header block at the top */
       .hero{
-        position: sticky;
-        top: 0;
-        inset: auto !important;   /* critical */
-        height: auto !important;  /* critical */
-        padding: 12px 14px 10px;
+        position: relative;
+        inset: auto !important;
+        height: auto !important;
+        padding: 18px 14px 14px;
         z-index: 50;
-        pointer-events: none;
-        background: linear-gradient(to bottom, rgba(7,7,7,.92), rgba(7,7,7,.65), rgba(7,7,7,0));
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
+        pointer-events:none;
+        background: linear-gradient(to bottom, rgba(7,7,7,.96), rgba(7,7,7,.82), rgba(7,7,7,.0));
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
       }
 
-      .hero__logo{ width: min(360px, 78vw); }
+      .hero__logo{ width: min(360px, 80vw); }
       .hero__desc{
-        margin-top: 8px;
+        margin-top: 10px;
         font-size: 13px;
       }
       .hero__hint{ display:none; }
       .mobileCue{ display:block; }
 
-      /* tap-friendly tiles */
+      /* give some breathing room so tiles start below hero */
+      #scene{
+        padding-top: 0px;
+      }
+
       .anchor{
         width: clamp(210px, 46vw, 320px);
       }
       .tile{ border-radius: 18px; }
-      .tile__text{
-        font-size: 22px;
-        letter-spacing: .14em;
-      }
+      .tile__text{ font-size: 22px; letter-spacing: .14em; }
 
       .overlay__shell{ padding: 14px; }
       .detail-card{ width: 100%; border-radius: 18px; }
@@ -391,7 +388,7 @@
     <div id="heroInner">
       <img class="hero__logo" src="images/logo.png" alt="IF Studio logo" />
       <p class="hero__desc">Art & web — minimal, interactive, built with intention.</p>
-      <p class="mobileCue">Swipe / scroll to explore • tap a tile</p>
+      <p class="mobileCue">Scroll to explore • tap a tile</p>
       <p class="hero__hint">Click any tile to enter.</p>
     </div>
   </main>
@@ -500,6 +497,7 @@
     const panelView = $("panelView");
     const panelContent = $("panelContent");
     const heroInner = $("heroInner");
+    const heroEl = document.querySelector(".hero");
 
     let active = null;
     let slideIndex = 0;
@@ -628,7 +626,7 @@
       });
     }
 
-    // ---------- Layout (FLOATING on desktop AND mobile) ----------
+    // ---------- Layout (floating on desktop + mobile, but mobile starts below hero) ----------
     function clamp(min, val, max){ return Math.max(min, Math.min(max, val)); }
 
     function rectsOverlap(a, b, pad=0){
@@ -667,9 +665,6 @@
       });
     }
 
-    // Gallery-like mobile composition:
-    // - first 2 tiles sit near the hero (curated)
-    // - remaining tiles live below, so it feels like you "walk in" and discover more
     function layoutTiles(){
       // kill old drift
       scatter.querySelectorAll(".anchor").forEach(a => {
@@ -689,18 +684,21 @@
       const safetyPad = 26 + driftAmt;
       const rects = [];
 
+      // Determine where tiles should start on mobile (below hero)
+      const heroH = mobile ? (heroEl?.getBoundingClientRect().height || 150) : 0;
+      const topStart = mobile ? (heroH + 18) : 12;
+
+      // Make the usable layout area taller on mobile so you can scroll through tiles
+      const layoutH = mobile ? Math.max(H * 1.6, heroH + H * 1.2) : H;
+
+      // Keep the area just under hero a bit clearer for breathing room
       const cx = W / 2;
-      const cy = H / 2;
+      const cy = mobile ? (topStart + 220) : (H / 2);
+      const clearRadius = mobile ? Math.min(W, H) * 0.18 : Math.min(W, H) * 0.30;
 
-      // smaller "no-go" in center on mobile so tiles are reachable
-      const clearRadius = mobile ? Math.min(W, H) * 0.14 : Math.min(W, H) * 0.30;
+      const bounds = { x: 0, y: topStart, w: W, h: layoutH - topStart };
 
-      // where the mobile "gallery" begins (below the sticky hero)
-      const heroBand = mobile ? 110 : 0; // approx hero height
-      const curatedBandTop = mobile ? heroBand + 10 : 0;
-      const curatedBandBottom = mobile ? heroBand + 240 : H; // first area = curated
-
-      function placeCandidate(bounds){
+      function placeCandidate(){
         const tries = 1600;
         let best = null;
         let bestScore = -1e9;
@@ -710,7 +708,7 @@
           const y = Math.random() * (bounds.h - tileH - 24) + bounds.y + 12;
 
           const dx = (x + tileW/2) - cx;
-          const dy = (y + tileH/2) - (mobile ? (heroBand + 140) : cy);
+          const dy = (y + tileH/2) - cy;
           const dist = Math.sqrt(dx*dx + dy*dy);
           if (dist < clearRadius) continue;
 
@@ -722,32 +720,26 @@
           }
           if (!ok) continue;
 
-          // prefer edges slightly so center feels clean
+          // Prefer slightly closer to top on mobile so it feels curated
+          const topBias = mobile ? -(y - topStart) * 0.08 : 0;
           const edgeDist = Math.min(
             x - bounds.x,
             y - bounds.y,
             (bounds.x + bounds.w) - (x + tileW),
             (bounds.y + bounds.h) - (y + tileH)
           );
-          const score = dist + edgeDist * 0.20;
+
+          const score = dist + edgeDist * 0.20 + topBias;
 
           if (score > bestScore){
             bestScore = score;
             best = candidate;
           }
-          if (k > 180 && best) break;
+          if (k > 200 && best) break;
         }
 
         return best;
       }
-
-      // bounds:
-      // - curated area near top (mobile only)
-      // - discovery area below (mobile only)
-      // - full viewport (desktop)
-      const curatedBounds = { x: 0, y: curatedBandTop, w: W, h: Math.max(260, curatedBandBottom - curatedBandTop) };
-      const discoveryBounds = { x: 0, y: curatedBandBottom, w: W, h: Math.max(520, (mobile ? (H * 1.35) : H) - curatedBandBottom) };
-      const desktopBounds = { x: 0, y: 0, w: W, h: H };
 
       tilesData.forEach((t, i) => {
         const anchor = document.createElement("div");
@@ -767,16 +759,9 @@
         tile.appendChild(txt);
         anchor.appendChild(tile);
 
-        // choose bounds
-        let bounds = desktopBounds;
-        if (mobile){
-          // first two items feel curated near hero
-          bounds = (i < 2) ? curatedBounds : discoveryBounds;
-        }
-
-        const pos = placeCandidate(bounds) || {
+        const pos = placeCandidate() || {
           x: 12 + (i * (tileW + safetyPad)) % Math.max(1, (W - tileW - 24)),
-          y: (mobile ? curatedBandBottom : 12) + Math.floor((i * (tileW + safetyPad)) / Math.max(1, (W - tileW - 24))) * (tileH + safetyPad),
+          y: topStart + 12 + Math.floor((i * (tileW + safetyPad)) / Math.max(1, (W - tileW - 24))) * (tileH + safetyPad),
           w: tileW, h: tileH
         };
 
@@ -786,8 +771,6 @@
         anchor.style.left = `${pos.x}px`;
         anchor.style.top  = `${pos.y}px`;
         anchor.style.transform = `rotate(${rot}deg)`;
-
-        // prevent one tile blocking others on touch devices
         anchor.style.zIndex = String(10 + i);
 
         // hover only on desktop
@@ -802,21 +785,18 @@
           });
         }
 
-        // click
         tile.addEventListener("click", () => openDetail(t, tile, anchor));
         scatter.appendChild(anchor);
 
-        // drift on both; calm on mobile
         const tw = ambientDrift(anchor, i, driftAmt);
         driftTweens.set(anchor, tw);
       });
 
-      // ensure the scene is tall enough to scroll through discovery area on mobile
+      // Make the scene tall enough for scrolling on mobile
       if (mobile){
         const maxBottom = rects.reduce((m,r) => Math.max(m, r.y + r.h), 0);
         const scene = document.getElementById("scene");
-        // add breathing room so last tiles aren't pinned to bottom
-        scene.style.minHeight = Math.max(maxBottom + 160, window.innerHeight * 1.55) + "px";
+        scene.style.minHeight = Math.max(maxBottom + 180, window.innerHeight * 1.7) + "px";
       } else {
         const scene = document.getElementById("scene");
         scene.style.minHeight = "";
@@ -895,7 +875,6 @@
         ease: "power3.inOut",
         absolute: true,
         onComplete: () => {
-          // remove tile from layout so it can’t block the form
           gsap.to(tileEl, {
             opacity: 0,
             duration: 0.15,
@@ -973,7 +952,6 @@
       if (e.key === "ArrowRight") showSlide(1);
     });
 
-    // Re-layout on resize / rotation
     window.addEventListener("resize", () => layoutTiles());
 
     // Boot
